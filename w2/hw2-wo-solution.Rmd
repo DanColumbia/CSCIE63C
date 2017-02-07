@@ -70,6 +70,31 @@ Once the dataset in loaded into R, please name appropriately data set attributes
 Please comment on whether given the data at hand such problem appears to be an easy or hard one to solve.  Try to guess using your best intuition, what could be an error in discriminating forged banknotes from genuine  in this dataset: 50%, 20%, 10%, 5%, 2%, less than that?  Later in the course we will work with this dataset again to actually develop such a classifier at which point you will get quantitative answer to this question, but for now, just from visual inspection of the scatterplots above, what do you think such an error could be?  There is no wrong answer at this point, just try your best and make a note of it, so you can go back to it several weeks later.  Also, please discuss some of the tradeoffs that might be associated with that. For instance, should one expect the cost of calling genuine note counterfeit to be the same as making the opposite call (allowing fake bills as authentic).  Consider also anticipated frequency of these cases in the practical settings and how it could potentially interact with these costs.
 
 
+**Answer **
+```{r banknoteRead}
+banknote <- read.table("data_banknote_authentication.txt", sep = ",")
+colnames(banknote) <- c("variance","skewness","curtosis","entropy","class")
+dim(banknote)
+```
+"variance","skewness","curtosis","entropy" are predictors, "class" is outcome. 
+
+```{r banknoteSummary}
+summary(banknote$variance)
+summary(banknote$skewness)
+summary(banknote$curtosis)
+summary(banknote$entropy)
+banknote$class <- factor(banknote$class)
+summary(banknote$class)
+```
+
+```{r banknotePlot,fig.height=5,fig.width=10}
+pairs(banknote[1:4],main=paste("Banknote Classification"),col=c("green","red")[banknote$class],pch=19)
+```
+
+Variance is an important classifier, followed by skewness. Thiswould be an easy problem to solve. 10% error expected. 
+
+Calling a fake banknote to be authentic would cost dollar loss, in much more severity than calling a genuine one to be counterfeit, where the loss is the complaint of customers. Fake banknotes don't show up very often, but its losses are big. 
+
 # Abalone age (30 points)
 
 This dataset presents an example of a regression problem -- predicting mollusc age from measurements that are easier to obtain. More details about underlying data can be found in corresponding [dataset description](http://archive.ics.uci.edu/ml/datasets/Abalone). To load data into R please use file `abalone.data` available at the course website as well as at the UCI ML data repository.
@@ -78,5 +103,42 @@ Once the dataset in loaded into R, please name appropriately data set attributes
 
 Describe your observations and discuss which attributes might be more useful for predicting snail age.
 
+**Answer **
+```{r abaloneRead}
+abalone <- read.table("abalone.data", sep = ",")
+colnames(abalone) <- c("sex","length","diameter","height","whole_weight","shucked_weight","viscera_weight","shell_weight","rings")
+dim(abalone)
+```
+
+sex,length,diameter,height,whole_weight,shucked_weight,viscera_weight are predictors, rings is outcome. 
+sex is a categorical variable. 
+
+```{r abaloneSummary}
+summary(abalone$sex)
+summary(abalone$length)
+summary(abalone$diameter)
+summary(abalone$height)
+summary(abalone$whole_weight)
+summary(abalone$shucked_weight)
+summary(abalone$viscera_weight)
+summary(abalone$shell_weight)
+summary(abalone$rings)
+```
+
+```{r abalonePlot,fig.height=5,fig.width=10}
+pairs(abalone[2:9],main=paste("abalone age"),col=c("blue"),pch=16)
+```
+
+There is no single continuous variable that best predicts abalone age. 
+
+
 For **extra 5 points** for some of the continuous and
 categorical predictors generate boxplots rendering relationship between them.
+
+```{r abaloneExtraCredit,fig.height=5,fig.width=10}
+old.par <- par(mfrow=c(2,2),ps=16)
+for(i in 2:9){
+  plot(abalone$sex, unlist(abalone[i]), main=paste0("sex vs ", names(abalone[i])))
+}
+par(old.par)
+```
