@@ -75,6 +75,34 @@ Here we will identify variable most correlated with the outcome (abalone age), b
     + confidence and prediction intervals on model predictions
     + Comment on whether confidence or predicion intervals (on predictions) are wider and why
 
+**Answer **
+```{r abaloneRead}
+abalone <- read.table("abalone.data", sep = ",")
+colnames(abalone) <- c("sex","length","diameter","height","whole_weight","shucked_weight","viscera_weight","shell_weight","rings")
+```
+1. Correlation
+```{r p1q1}
+cor(abalone$length, abalone$rings, method = "pearson")
+cor(abalone$diameter, abalone$rings, method = "pearson")
+cor(abalone$height, abalone$rings, method = "pearson")
+cor(abalone$whole_weight, abalone$rings, method = "pearson")
+cor(abalone$shucked_weight, abalone$rings, method = "pearson")
+cor(abalone$viscera_weight, abalone$rings, method = "pearson")
+cor(abalone$shell_weight, abalone$rings, method = "pearson")
+
+cor(abalone$length, abalone$rings, method = "spearman")
+cor(abalone$diameter, abalone$rings, method = "spearman")
+cor(abalone$height, abalone$rings, method = "spearman")
+cor(abalone$whole_weight, abalone$rings, method = "spearman")
+cor(abalone$shucked_weight, abalone$rings, method = "spearman")
+cor(abalone$viscera_weight, abalone$rings, method = "spearman")
+cor(abalone$shell_weight, abalone$rings, method = "spearman")
+```
+shell weight is most robustly correlated with age
+
+2. Fit model
+model <- lm(rings~shell_weight, abalone)
+
 # Problem 2: model using log-transformed attributes (20 points)
 
 1. Use `lm()` to fit a regression model of *log-transformed* age as linear function of *log-transformed* shell weight and use `summary` to evaluate its results.  Can we compare fits obtained from using untransformed (above) and log-transformed attributes?  Can we directly compare RSE from these two models?  What about comparing $R^2$?  What would we conclude from this? (Please consult ISLR Ch.3.1.3 if unsure)  What would be the physical meaning of model coefficients this time?  What does model intercept represent in this case, for example?  How sensible is this and how does it compare to that from the fit on untransformed data?
