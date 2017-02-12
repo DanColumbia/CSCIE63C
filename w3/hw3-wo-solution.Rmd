@@ -101,7 +101,30 @@ cor(abalone$shell_weight, abalone$rings, method = "spearman")
 shell weight is most robustly correlated with age
 
 2. Fit model
+```{r p1q2}
 model <- lm(rings~shell_weight, abalone)
+summary(model)
+```
+Yes, there is significant association between shell_weight and age. 
+
+RSE=2.51, R-squared=0.3938
+
+beta0=6.46, beta1=14.53. Age changes 14.53 units in the same direction as shell_weight changes 1 unit. The intercept is the age predicted for the abalones with 0 shell weight. It is a theoretical prediction and doesn't have actual sense. 
+
+3. Scatterplot
+```{r p1q3}
+plot(abalone$shell_weight, abalone$rings)
+abline(model, col="red")
+```
+
+4. Diagnostic
+```{r p1q4}
+plot(model)
+```
+According to residuals vs. fitted values plot, there is non-linearity remain unexplained. Analyzed together with the abline plot above, it can be suggested that transforming age to log(age) might be better. 
+
+According to Q-Q plot, the distribution is not normal. 
+
 
 # Problem 2: model using log-transformed attributes (20 points)
 
