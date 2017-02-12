@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ---
 title: 'CSCI E-63C Week 2 Assignment'
 output: html_document
@@ -80,3 +81,149 @@ Describe your observations and discuss which attributes might be more useful for
 
 For **extra 5 points** for some of the continuous and
 categorical predictors generate boxplots rendering relationship between them.
+=======
+---
+title: 'CSCI E-63C Week 2 Assignment'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(reshape2)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Preface
+
+One of the first steps in the analysis of a new dataset, often as part of data cleaning, typically involves generation of high level summaries, such as: how many observations, attributes, which ones are predictors and which ones are (could be?) outcomes, what are their ranges, distributions, percentages of missing values, how strongly correlated are the predictors among themselves and with the outcome(s), etc.  It is usually at this stage when we develop our initial intuition about the level of difficulty of the problem and of the challenges presented by this particular dataset and therefore form our first set of ideas as to how to approach it.  There are many multivariate methods under unsupervised learning umbrella that are extremely useful in this setting (that will be introduced later in the course), but first things first, and here we will start by loading few datasets into R and exploring their attributes in the form of univariate summaries and bivariate plots and contingency tables (where applicable).
+
+For this assignment we will use several datasets available from [UCI machine learning repository](http://archive.ics.uci.edu/ml/datasets.html) that for convenience and as to not to depend on UCI ML repository availability have been also copied into this course website. Once you have downloaded them onto your computer, they can be loaded into R using function `read.table` with necessary options (of which most useful/relevant include: `sep` -- defining field separator and `header` -- instructing `read.table` to use fields in the first line as column headers). In principle, `read.table` can also use URL as a full path to the dataset, but here, to be able to work independently of network connection, we recommend that you download those datasets locally and provide `read.table` with appropriate paths to their local copies.  The simplest thing is probably to copy them to the same directory where your .Rmd file is, in which case just the file name passed to `read.table` should suffice.  As always, please remember, that `help(read.table)` (or, `?read.table` as a shorthand) will tell you quite a bit about this function and its parameters.
+
+For those datasets that do not have column names included in their data files, it is often convenient to assign them explicitly. Please note that for some of these datasets categorical variables are encoded in the form of integer values, that by default R will interpret as continuous variables while the behavior of many R functions depends on the type of the input variables.
+
+The code excerpts and their output presented below illustrate some of these most basic steps as applied to one of the datasets available from UCI. The homework problems follow after that -- they will require you to apply similar kind of approaches to generate high levels summaries of few other UCI datasets.
+
+```{r habRead}
+habDat <- read.table("haberman.data",sep=",")
+colnames(habDat) <- c("age","year","nodes","surv")
+summary(habDat$surv)
+habDat$surv <- c("yes","no")[habDat$surv]
+summary(habDat$surv)
+habDat$surv <- factor(habDat$surv)
+summary(habDat$surv)
+```
+
+The following two examples below show generation of xy-scatterplots of age and node count for the patients in this dataset with color indicating their survival past 5 years using basic plotting capabilities in R as well as those provided by the package `ggplot2`.
+
+```{r habPlot,fig.height=5,fig.width=10}
+oldPar <- par(mfrow=c(1:2),ps=16)
+for ( iSurv in sort(unique(habDat$surv)) ) {
+    plot(habDat[,c("age","nodes")],type="n",
+        main=paste("Survival:",iSurv))
+    iTmp <- (1:length(levels(habDat$surv)))[levels(habDat$surv)==iSurv]
+    points(habDat[habDat$surv==iSurv,c("age","nodes")],col=iTmp,pch=iTmp)
+}
+par(oldPar)
+```
+
+```{r habPlotGG,fig.height=3,fig.width=6}
+ggplot(habDat,aes(x=age,y=nodes,colour=surv,shape=surv)) + 
+geom_point() + facet_wrap(~surv)
+```
+
+It seems that higher number of nodes might be associated with lower probability of survival. One attempt to quantify this relationship might involve testing relationship between indicators of survival and count of nodes exceeding arbitrarily chosen cutoffs (zero or 75th percentile in the example below). There is also substantial degree of overplotting due to integer values of node count and year that might, for instance, make it less apparent that not all patients with zero nodes survive if all of them were plotted in the same panel.  
+
+```{r habTbl}
+habDat$nodes0 <- habDat$nodes==0
+table(habDat[, c("surv","nodes0")])
+habDat$nodes75 <- habDat$nodes>=quantile(habDat$nodes,probs=0.75)
+table(habDat[, c("surv","nodes75")])
+```
+
+Please feel free to model your solutions after the examples shown above, while exercising necessary judgement as to which attributes are best represented as continuous and which ones -- as categorical, etc.  The descriptions of homework problems provide some guidance as to what is expected, but leave some of those choices up to you. Making such calls is an integral part of any data analysis project and we will be working on advancing this skill throughout
+this course.
+
+**Lastly -- do ask questions!  Piazza is the best for that**
+
+# Banknote authentication (30 points)
+
+This dataset presents an example of classification problem (authentic vs. counterfeit bank notes) using continuous predictors derived from image processing. More details about underlying data can be found in corresponding [dataset description](http://archive.ics.uci.edu/ml/datasets/banknote+authentication) at UCI ML website. To load data into R please use data file `data_banknote_authentication.txt` available at the course website as well as in UCI ML dataset repository.
+
+Once the dataset in loaded into R, please name appropriately data set attributes, determine number of variables (explain which ones are predictors and which one is outcome) and observations in the dataset (R functions such as `dim`, `nrow`, `ncol` could be useful for this), generate summary of the data using `summary` function in R and generate pairwise XY-scatterplots of each pair of continuous predictors indicating outcome using colour and/or shape of the symbols (you may find it convenient to use `pairs` plotting function). Describe your observations and discuss which of the variables are more likely to be informative with respect to discriminating forged bank notes from genuine.
+
+Please comment on whether given the data at hand such problem appears to be an easy or hard one to solve.  Try to guess using your best intuition, what could be an error in discriminating forged banknotes from genuine  in this dataset: 50%, 20%, 10%, 5%, 2%, less than that?  Later in the course we will work with this dataset again to actually develop such a classifier at which point you will get quantitative answer to this question, but for now, just from visual inspection of the scatterplots above, what do you think such an error could be?  There is no wrong answer at this point, just try your best and make a note of it, so you can go back to it several weeks later.  Also, please discuss some of the tradeoffs that might be associated with that. For instance, should one expect the cost of calling genuine note counterfeit to be the same as making the opposite call (allowing fake bills as authentic).  Consider also anticipated frequency of these cases in the practical settings and how it could potentially interact with these costs.
+
+
+**Answer **
+```{r banknoteRead}
+banknote <- read.table("data_banknote_authentication.txt", sep = ",")
+colnames(banknote) <- c("variance","skewness","curtosis","entropy","class")
+dim(banknote)
+```
+"variance","skewness","curtosis","entropy" are predictors, "class" is outcome. 
+
+```{r banknoteSummary}
+summary(banknote$variance)
+summary(banknote$skewness)
+summary(banknote$curtosis)
+summary(banknote$entropy)
+banknote$class <- factor(banknote$class)
+summary(banknote$class)
+```
+
+```{r banknotePlot,fig.height=5,fig.width=10}
+pairs(banknote[1:4],main=paste("Banknote Classification"),col=c("green","red")[banknote$class],pch=19)
+```
+
+Variance is an important classifier, followed by skewness. Thiswould be an easy problem to solve. 10% error expected. 
+
+Calling a fake banknote to be authentic would cost dollar loss, in much more severity than calling a genuine one to be counterfeit, where the loss is the complaint of customers. Fake banknotes don't show up very often, but its losses are big. 
+
+# Abalone age (30 points)
+
+This dataset presents an example of a regression problem -- predicting mollusc age from measurements that are easier to obtain. More details about underlying data can be found in corresponding [dataset description](http://archive.ics.uci.edu/ml/datasets/Abalone). To load data into R please use file `abalone.data` available at the course website as well as at the UCI ML data repository.
+
+Once the dataset in loaded into R, please name appropriately data set attributes, determine number of variables (explain which ones are predictors -- categorical vs. continuous -- and which one is the outcome) and observations in the dataset (R functions such as `dim`, `nrow`, `ncol` could be useful for this), generate summary of the data using `summary` function in R and generate pairwise XY-scatterplots of each pair of *continuous* attributes.
+
+Describe your observations and discuss which attributes might be more useful for predicting snail age.
+
+**Answer **
+```{r abaloneRead}
+abalone <- read.table("abalone.data", sep = ",")
+colnames(abalone) <- c("sex","length","diameter","height","whole_weight","shucked_weight","viscera_weight","shell_weight","rings")
+dim(abalone)
+```
+
+sex,length,diameter,height,whole_weight,shucked_weight,viscera_weight are predictors, rings is outcome. 
+sex is a categorical variable. 
+
+```{r abaloneSummary}
+summary(abalone$sex)
+summary(abalone$length)
+summary(abalone$diameter)
+summary(abalone$height)
+summary(abalone$whole_weight)
+summary(abalone$shucked_weight)
+summary(abalone$viscera_weight)
+summary(abalone$shell_weight)
+summary(abalone$rings)
+```
+
+```{r abalonePlot,fig.height=5,fig.width=10}
+pairs(abalone[2:9],main=paste("abalone age"),col=c("blue"),pch=16)
+```
+
+There is no single continuous variable that best predicts abalone age. 
+
+
+For **extra 5 points** for some of the continuous and
+categorical predictors generate boxplots rendering relationship between them.
+
+```{r abaloneExtraCredit,fig.height=5,fig.width=10}
+old.par <- par(mfrow=c(2,2),ps=16)
+for(i in 2:9){
+  plot(abalone$sex, unlist(abalone[i]), main=paste0("sex vs ", names(abalone[i])))
+}
+par(old.par)
+```
+>>>>>>> 847edc41334f8069ed8a24e52e025bb0834cc2b6
