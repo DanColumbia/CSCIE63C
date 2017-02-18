@@ -107,7 +107,7 @@ summary(model)
 ```
 Yes, there is significant association between shell_weight and age. 
 
-RSE=2.51, R-squared=0.3938
+RSE=2.51, $R^2$=0.39
 
 beta0=6.46, beta1=14.53. Age changes 14.53 units in the same direction as shell_weight changes 1 unit. The intercept is the age predicted for the abalones with 0 shell weight. It is a theoretical prediction and doesn't have actual sense. 
 
@@ -125,6 +125,17 @@ According to residuals vs. fitted values plot, there is non-linearity remain une
 
 According to Q-Q plot, the distribution is not normal. 
 
+5. Confidence Interval
+```{r p1q5}
+confint(model)
+```
+
+6. Predict
+```{r p1q6}
+predict(model,newdata=data.frame(shell_weight=c(0.1,0.2,0.3)),interval='prediction')
+predict(model,newdata=data.frame(shell_weight=c(0.1,0.2,0.3)),interval='confidence')
+```
+
 
 # Problem 2: model using log-transformed attributes (20 points)
 
@@ -134,6 +145,41 @@ According to Q-Q plot, the distribution is not normal.
 
 3. Make diagnostic plots for model fit on log-transformed age and shell weight.  Compare their appearance to that for the model using original scale of measurements. What would you conclude from this comparison about their relative quality?
 
+**Answer **
+1. lm fit
+```{r p2q1}
+model2 <- lm(log(rings)~log(shell_weight), data=abalone)
+summary(model2)
+```
+RSE is now 0.21 vs 2.51. $R^2$ is now 0.54 vs 0.39. The prediction error is significantly smaller than untransformed model. More variance is explained (higher $R^2$). 
+
+The coefficients mean that 1 unit change of log(shell_weight) bring 0.29 unit change of log(rings). The intercept is the predicted log(rings) at the point where log(shell_weight)=0, i.e. shell_weight=1. Now it has actual meaning, vs. in untransfomed data, where it doesn't. 
+
+2. Scatterplot
+```{r p2q2}
+plot(log(abalone$shell_weight), log(abalone$rings))
+abline(model2, col="red")
+```
+
+In the transformed plot, the abline aligns to the scatterplot better. 
+
+3. Diagnostic Plots
+```{r p2q3}
+plot(model2)
+```
+All 4 plots looks more like a good fit. Residual vs Fitted plot doesn't show significant evidence of non-linearity, and Q-Q plot indicates that the distribution is close to normal now. 
+
 # Problem 3: Adding second variable to the model (10 points)
 
 To explore effects of adding another variable to the model, continue using log-transformed attributes and fit a model of log-transformed age as a function of shell weight and shucked weight (both log-transformed also).  Just an additive model -- no interaction term is necessary at this point. Please obtain and evaluate the summary of this model fit, confidence intervals on its parameters and its diagnostic plots. Where applicable, compare them to the model obtained above and reflect on pros and cons of including shucked weight as another variable into the model.
+
+**Answer **
+```{r p3}
+model3 <- lm(log(rings)~log(shell_weight)+log(shucked_weight), data = abalone)
+summary(model3)
+confint(model3)
+plot(model3)
+```
+
+It now gives us a better fit, RSE=0.20 vs 0.21, $R^2$=0.61 vs 0.54. 
+The Residuals vs Fitted plot shows even less non-linearity. There are less points with high leverage. 
