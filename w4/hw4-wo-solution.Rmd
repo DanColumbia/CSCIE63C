@@ -180,15 +180,54 @@ The first two columns -- vendor and model names -- are irrelevant for the regres
 
 Use methods such as `summary` and `pairs` that have been used in the previous assigments.  Comment on the extent of the signal available in the data for modeling PRP. Rearrange columns in the dataset in the decreasing order of absolute values of their correlation with the outcome (PRP).  So that PRP is the first column, the next one is the predictor that is most (positively or negatively) correlated with it, and so on.  You may find it convenient to use R function `order` for that.
 
+```{r machine}
+machineData <- read.table("machine.data",sep=",")
+colnames(machineData) <- c("Vendor","Model","MYCT","MMIN","MMAX","CACH","CHMIN","CHMAX","PRP","ERP")
+machineData <- machineData[, !names(machineData) %in% c("Vendor","Model","ERP")]
+varCol <- data.frame("varName"=NA, "cor"=NA)
+for(i in 1:ncol(machineData)){
+  machineData[i] <- as.numeric(unlist(machineData[i]))
+  if(colnames(machineData[i])!="PRP"){
+    varCol <- rbind(varCol, c(colnames(machineData[i]), cor(unlist(machineData[i]), unlist(machineData$PRP), method = "spearman")))
+  }
+}
+varCol <- varCol[order(-abs(as.numeric(varCol$cor))),]
+machineData <- machineData[, c("PRP",varCol[!is.na(varCol$varName),]$varName)]
+
+```
+
 
 ## Sub-problem 2: add quadratic terms to the dataset (10 points)
 
 Use the code presented in the preface as a template to develop your own procedure for adding to the computer hardware dataset containing outcome (PRP) and all continuous predictors (MYCT through CHMAX) all pairwise products of continuous predictors (e.g. MYCT x MYCT, MYCT x MMIN, ..., CHMAX x CHMAX).  The data used here has to be the one from computer hardware dataset, _not_ simulated from normal distribution.  In the end your dataset should have 28 columns: PRP, 6 predictors and 6*7/2=21 of their pairwise combinations.
 
-
+```{r machine2}
+k <- ncol(machineData)
+for(i in 2:k){
+  for(j in i:k){
+    tmp1 <- names(machineData)
+    machineData$tmp2 <- unlist(machineData[i])*unlist(machineData[j])
+    names(machineData) <- c(tmp1, paste(colnames(machineData[i]), colnames(machineData[j]), sep="x"))
+  }
+}
+machineData <- data.frame(machineData)
+ncol(machineData)
+```
 ## Sub-problem 3: fit multiple regression models on the entire dataset (10 points)
 
 As illustrated in the preface above, starting from the first, most correlated with PRP, predictor, fit linear models with one, two, ..., all 27 linear and quadratic terms on the entire dataset and calculate resulting (training) error for each of the models. Plot error as a function of the number of predictors in the model (similar to the plot in the preface that shows just the training error on the entire dataset).  Because the underlying data is different the plot you obtain here for computer hardware dataset will be different from that shown in the preface.  Please comment on this difference.
+
+
+```{r machine3}
+df2plot <- NULL
+for ( iTmp in 2:ncol(machineData) ) {
+  lmTmp <- lm(PRP~., data = machineData[,1:iTmp])
+  errTmp <- sqrt(mean((machineData[,"PRP"]-predict(lmTmp))^2))
+  df2plot <- rbind(df2plot,data.frame(nvars=iTmp-1,err=errTmp))
+}
+plot(df2plot,xlab="Number of variables",ylab="Regression error",main=paste(nrow(machineData),"observations"))
+```
+The error drops significant after 6 variables having been added, which is the original 6 single predictors. 
 
 
 ## Sub-problem 4: develop function performing bootstrap on computer hardware dataset (15 points)
@@ -196,6 +235,50 @@ As illustrated in the preface above, starting from the first, most correlated wi
 Modify function `bootTrainTestErrOneAllVars` defined in the preface to perform similar kind of analysis on the computer hardware dataset.  Alternatively, you can determine what modifications are necessary to the computer hardware dataset, so that it can be used as input to `bootTrainTestErrOneAllVars`.
 
 
+```{r machine4}
+bootTrainTestErrOneAllVars <- function(inpDat,nBoot=100) {
+  # matrices and vector to store bootstrap training
+  # and test errors as well as training error for model
+  # fit on all observations -- for one through all
+  # variables in the dataset:
+  errTrain <- matrix(NA,nrow=nBoot,ncol=dim(inpDat)[2]-1)
+  errTest <- matrix(NA,nrow=nBoot,ncol=dim(inpDat)[2]-1)
+  allTrainErr <- numeric()
+  # first predictor is the second column in
+  # the input data - first is the outcome "Y":
+  for ( iTmp in 2:dim(inpDat)[2] ) {
+    # fit model and calculate error on all observations:
+    lmTmp <- lm(PRP~.,inpDat[,1:iTmp])
+    allTrainErr[iTmp-1] <- sqrt(mean((inpDat[,"PRP"]-predict(lmTmp))^2))
+    # draw repeated boostraps of the data:
+    for ( iBoot in 1:nBoot ) {
+      # replace=TRUE is critical for bootstrap to work correctly:
+      tmpBootIdx <- sample(dim(inpDat)[1],dim(inpDat)[1],replace=TRUE)
+      # model fit on the bootstrap sample and
+      # corresponding training error:
+      lmTmpBoot <- lm(PRP~.,inpDat[tmpBootIdx,1:iTmp])
+      errTrain[iBoot,iTmp-1] <- sqrt(mean((inpDat[tmpBootIdx,"PRP"]-predict(lmTmpBoot))^2))
+      # test error is calculated on the observations
+      # =not= in the bootstrap sample - thus "-tmpBootIdx"
+      errTest[iBoot,iTmp-1] <- sqrt(mean((inpDat[-tmpBootIdx,"PRP"]-predict(lmTmpBoot,newdata=inpDat[-tmpBootIdx,1:iTmp]))^2))
+    }
+  }
+  # return results as different slots in the list:
+  list(bootTrain=errTrain,bootTest=errTest,allTrain=allTrainErr)
+}
+```
 ## Sub-problem 5: use bootstrap to estimate training and test error on computer hardware dataset (15 points)
 
 Use function developed above to estimate training and test error in modeling PRP on the computer hardware dataset.  Plot and discuss the results.  Compare model error over the range of model complexity to that obtained by the dataset contributors (as a difference between ERP and PRP in the original full dataset once the log-transform performed before proceeding with modeling here has been accounted for -- by either calculating error on log-transform of PRP and ERP or transforming our model predictions back to the original scale of PRP measurements)
+
+```{r bootErrMachine}
+# wrapper for plotting:
+plotBootRegrErrRes <- function(inpRes,inpPchClr=c(1,2,4),mainTxt="") {
+  matplot(1:length(inpRes$allTrain),cbind(inpRes$allTrain,colMeans(inpRes$bootTrain),colMeans(inpRes$bootTest)),pch=inpPchClr,col=inpPchClr,lty=1,type="b",xlab="Number of predictors",ylab="Regression error",main=mainTxt)
+  legend("topright",c("train all","train boot","test boot"),col=inpPchClr,text.col=inpPchClr,pch=inpPchClr,lty=1)
+}
+bootErrRes <- bootTrainTestErrOneAllVars(machineData,30)
+plotBootRegrErrRes(bootErrRes,mainTxt="209 observations")
+```
+
+
