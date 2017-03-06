@@ -237,6 +237,23 @@ Using computer hardware dataset from assignment 4 (properly preprocessed: shifte
 
 *Please feel free for this and the following problems adapt the code used above as necessary for the task at hand.*
 
+```{r machineDataInput,echo=TRUE}
+machineData <- read.table("machine.data",sep=",")
+colnames(machineData) <- c("Vendor","Model","MYCT","MMIN","MMAX","CACH","CHMIN","CHMAX","PRP","ERP")
+machineData <- machineData[, !names(machineData) %in% c("Vendor","Model","ERP")]
+###dim(abaDat)
+lnmachineData <- machineData
+lnmachineData <- log(lnmachineData)
+
+```
+
+
+
+
+
+
+
+
 
 # Problem 2: best subset on training/test data (15 points)
 
