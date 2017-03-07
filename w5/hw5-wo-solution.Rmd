@@ -241,39 +241,193 @@ Using computer hardware dataset from assignment 4 (properly preprocessed: shifte
 machineData <- read.table("machine.data",sep=",")
 colnames(machineData) <- c("Vendor","Model","MYCT","MMIN","MMAX","CACH","CHMIN","CHMAX","PRP","ERP")
 machineData <- machineData[, !names(machineData) %in% c("Vendor","Model","ERP")]
-###dim(abaDat)
+
 lnmachineData <- machineData
+lnmachineData$CACH <- lnmachineData$CACH+10
+lnmachineData$CHMIN <- lnmachineData$CHMIN+10
+lnmachineData$CHMAX <- lnmachineData$CHMAX+10
+
 lnmachineData <- log(lnmachineData)
+
 
 ```
 
 
+```{r regsubsetsMachine,echo=TRUE}
+summaryMetrics <- NULL
+whichAll <- list()
+for ( myMthd in c("exhaustive", "backward", "forward", "seqrep") ) {
+  rsRes <- regsubsets(PRP~.,lnmachineData,method=myMthd)
+  summRes <- summary(rsRes)
+  whichAll[[myMthd]] <- summRes$which
+  for ( metricName in c("rsq","rss","adjr2","cp","bic") ) {
+    summaryMetrics <- rbind(summaryMetrics,
+      data.frame(method=myMthd,metric=metricName,
+                nvars=1:length(summRes[[metricName]]),
+                value=summRes[[metricName]]))
+  }
+}
+ggplot(summaryMetrics,aes(x=nvars,y=value,shape=method,colour=method)) + geom_path() + geom_point() + facet_wrap(~metric,scales="free") +   theme(legend.position="top")
+```
+
+The best number of variables for a model appears to be 4 with all metrics. 
 
 
+```{r machineWhich,echo=TRUE}
+old.par <- par(mfrow=c(2,2),ps=16,mar=c(5,7,2,1))
+for ( myMthd in names(whichAll) ) {
+  image(1:nrow(whichAll[[myMthd]]),
+        1:ncol(whichAll[[myMthd]]),
+        whichAll[[myMthd]],xlab="N(vars)",ylab="",
+        xaxt="n",yaxt="n",breaks=c(-0.5,0.5,1.5),
+        col=c("white","gray"),main=myMthd)
+  axis(1,1:nrow(whichAll[[myMthd]]),rownames(whichAll[[myMthd]]))
+  axis(2,1:ncol(whichAll[[myMthd]]),colnames(whichAll[[myMthd]]),las=2)
+}
+par(old.par)
+```
 
-
-
+CACH is the most included variable. 
 
 
 # Problem 2: best subset on training/test data (15 points)
 
 Splitting computer hardware dataset into training and test as shown above, please calculate and plot training and test errors (MSE) for each model size for several of the methods available for `regsubsets`.  Using `which` field investigate stability of variable selection at each model size across multiple selections of training/test data.  Discuss these results -- e.g. what model size appears to be most useful by this approach, what is the error rate corresponing to it, how stable is this conclusion across multiple methods for the best subset selection, how does this error compare to that of ERP (PRP estimate by dataset authors)?
 
-For *extra seven points* do the same using cross-validation or bootstrap
+```{r predictRegsubsets,echo=TRUE}
+predict.regsubsets <- function (object, newdata, id, ...){
+  form=as.formula(object$call [[2]])
+  mat=model.matrix(form,newdata)
+  coefi=coef(object,id=id)
+  xvars=names (coefi)
+  mat[,xvars] %*% coefi
+}
+```
 
+```{r machineRegsubsetsTrainTest,echo=TRUE}
+dfTmp <- NULL
+whichSum <- array(0,dim=c(6,7,4),
+  dimnames=list(NULL,colnames(model.matrix(PRP~.,lnmachineData)),
+      c("exhaustive", "backward", "forward", "seqrep")))
+# Split data into training and test 30 times:
+nTries <- 30
+for ( iTry in 1:nTries ) {
+  bTrain <- sample(rep(c(TRUE,FALSE),length.out=nrow(lnmachineData)))
+  # Try each method available in regsubsets
+  # to select best model of each size:
+  for ( jSelect in c("exhaustive", "backward", "forward", "seqrep") ) {
+    rsTrain <- regsubsets(PRP~.,lnmachineData[bTrain,],method=jSelect)
+    # Add up variable selections:
+    whichSum[,,jSelect] <- whichSum[,,jSelect] + summary(rsTrain)$which
+    # Calculate test error for each set of variables
+    # using predict.regsubsets implemented above:
+    for ( kVarSet in 1:6 ) {
+      # make predictions:
+      testPred <- predict(rsTrain,lnmachineData[!bTrain,],id=kVarSet)
+      # calculate MSE:
+      mseTest <- mean((testPred-lnmachineData[!bTrain,"PRP"])^2)
+      # add to data.frame for future plotting:
+      dfTmp <- rbind(dfTmp,data.frame(sim=iTry,sel=jSelect,vars=kVarSet,
+      mse=c(mseTest,summary(rsTrain)$rss[kVarSet]/sum(bTrain)),trainTest=c("test","train")))
+    }
+  }
+}
+# plot MSEs by training/test, number of 
+# variables and selection method:
+ggplot(dfTmp,aes(x=factor(vars),y=mse,colour=sel)) + geom_boxplot()+facet_wrap(~trainTest)
+whichSum
+mean(dfTmp[dfTmp$trainTest=='test'&dfTmp$vars==4,]$mse)
+```
+
+4 variables is the optimal choice for building a model. 
+Adding 1 more variable to 1 variable model significantly lowers mse. 
+Average mse is 0.2 across all methods and all test sets. 
+4 variable model is the best model for all methods.
+The mse of log ERP as estimation is 0.16, much better than the 4 variable model. 
+
+
+For *extra seven points* do the same using cross-validation or bootstrap
 
 # Problem 3: ridge regression (10 points)
 
 Fit ridge regression model of PRP in computer hardware dataset.  Plot outcomes of `glmnet` and `cv.glmnet` calls and discuss the results.  Compare coefficient values at cross-validation minimum MSE and that 1SE away from it.  Experiment with different ranges of `lambda` passed to `cv.glmnet` and discuss the results.
 
+```{r ridgeMachine}
+# -1 to get rid of intercept that glmnet knows to include:
+x <- model.matrix(PRP~.,lnmachineData)
+y <- lnmachineData[,"PRP"]
+ridgeRes <- glmnet(x,y,alpha=0)
+plot(ridgeRes)
+
+cvRidgeRes <- cv.glmnet(x,y,alpha=0)
+plot(cvRidgeRes)
+
+predict(ridgeRes,type="coefficients",s=cvRidgeRes$lambda.min)
+predict(ridgeRes,type="coefficients",s=cvRidgeRes$lambda.1se)
+
+cvRidgeRes <- cv.glmnet(x,y,alpha=0,lambda=10^((-80:80)/20))
+plot(cvRidgeRes)
+
+```
+
+As lambda goes higher, the model penals harder on large coefficients, hence the coefficients tend to be zero, the estimation tend to be mean. MSE becomes larger. 
+
+
+
 For *extra eight points* estimate test error (MSE) for ridge model fit on train dataset over multiple training and test samples using any resampling strategy of your choice.
 
+```{r ridgeMachineTrainTest}
+ridgeMSE <- NULL
+for ( iTry in 1:30 ) {
+  bTrain <- sample(rep(c(TRUE,FALSE),length.out=dim(x)[1]))
+  cvridgeTrain <- cv.glmnet(x[bTrain,],y[bTrain],alpha=1,lambda=10^((-120:0)/20))
+  ridgeTrain <- glmnet(x[bTrain,],y[bTrain],alpha=1,lambda=10^((-120:0)/20))
+  ridgeTrainCoef <- predict(ridgeTrain,type="coefficients",s=cvridgeTrain$lambda.1se)
+  ridgeTestPred <- predict(ridgeTrain,newx=x[!bTrain,],s=cvridgeTrain$lambda.1se)
+  ridgeMSE <- c(ridgeMSE,mean((ridgeTestPred-y[!bTrain])^2))
+}
+mean(ridgeMSE)
+```
 
 # Problem 4: lasso regression (10 points)
 
 Fit lasso regression model of PRP in computer hardware dataset.  Plot and discuss `glmnet` and `cv.glmnet` results.  Compare coefficient values at cross-validation minimum MSE and that 1SE away from it -- which coefficients are set to zero?  Experiment with different ranges of `lambda` passed to `cv.glmnet` and discuss the results.
 
+```{r lassoMachine}
+# -1 to get rid of intercept that glmnet knows to include:
+lassoRes <- glmnet(x,y,alpha=1)
+plot(lassoRes)
+
+cvlassoRes <- cv.glmnet(x,y,alpha=1)
+plot(cvlassoRes)
+
+predict(lassoRes,type="coefficients",s=cvlassoRes$lambda.min)
+predict(lassoRes,type="coefficients",s=cvlassoRes$lambda.1se)
+
+cvlassoRes <- cv.glmnet(x,y,alpha=0,lambda=10^((-80:80)/20))
+plot(cvlassoRes)
+
+```
+MYCT, MMIN, CHMIN, CHMAX are set to 0. 
 
 # Problem 5: lasso in resampling (15 points)
 
 Similarly to the example shown in Preface above use resampling to estimate test error of lasso models fit to training data and stability of the variable selection by lasso across different splits of data into training and test.  Use resampling approach of your choice.  Compare typical model size to that obtained by best subset selection above.  Compare test error observed here to that of ERP and PRP -- discuss the result.
+
+```{r lassoMachineTrainTest}
+lassoCoefCnt <- 0
+lassoMSE <- NULL
+for ( iTry in 1:30 ) {
+  bTrain <- sample(rep(c(TRUE,FALSE),length.out=dim(x)[1]))
+  cvLassoTrain <- cv.glmnet(x[bTrain,],y[bTrain],alpha=1,lambda=10^((-120:0)/20))
+  lassoTrain <- glmnet(x[bTrain,],y[bTrain],alpha=1,lambda=10^((-120:0)/20))
+  lassoTrainCoef <- predict(lassoTrain,type="coefficients",s=cvLassoTrain$lambda.1se)
+  lassoCoefCnt <- lassoCoefCnt + (lassoTrainCoef[-1,1]!=0)
+  lassoTestPred <- predict(lassoTrain,newx=x[!bTrain,],s=cvLassoTrain$lambda.1se)
+  lassoMSE <- c(lassoMSE,mean((lassoTestPred-y[!bTrain])^2))
+}
+mean(lassoMSE)
+lassoCoefCnt
+```
+The typical model size with lasso cv is larger than best subset selection model obtained above. 
+MSE is larger than using ERP as estimation of PRP. 
