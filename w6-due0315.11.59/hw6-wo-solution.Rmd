@@ -33,7 +33,7 @@ The following problems are largely modeled after labs and exercises from Chapter
 
 Compare means and variances of the attributes in the world health statisics dataset -- plot of variance vs. mean is probably the best given number of attributes in the dataset.  Function `apply` allows to apply desired function (e.g. `mean` or `var`) to each row or column in the table.  Do you see all `r ncol(whsAnnBdatNum)` attributes in the plot, or at least most of them?  (Remember that you can use `plot(inpX,inpY,log="xy")` to use log-scale on both horizontal and vertical axes.)  What is the range of means and variances when calculated on untransformed data?  Which are the top two attributes with highest mean or variance?  What are the implications for PCA rendition of this dataset (in two dimensions) if applied to untransformed data?
 
-```{r}
+```{r, echo=T}
 meanList <- sapply(whsAnnBdatNum, mean)
 varList <- sapply(whsAnnBdatNum, var)
 plot(x=meanList, y=varList, log="xy")
@@ -68,7 +68,7 @@ t(matrix(1:6,ncol=3))
 Present results of PCA on transposed world health statistics dataset in the form of scree and biplot, describe the results.
 
 ### Sub-problem 1b Answer
-```{r}
+```{r, echo=T}
 whsAnnBdatNum_pca <- prcomp(whsAnnBdatNum)
 biplot(whsAnnBdatNum_pca, pc.biplot = T, scale = 0)
 whsAnnBdatNum_pca$rotation
@@ -97,6 +97,24 @@ The output of `biplot` with almost 200 text labels on it is pretty busy and coul
 
 Finally, perform PCA on *transposed* scaled WHS dataset -- present results in the form of scree plot and biplot and discuss these presentations.
 
+### Sub-problem 1c Answer
+```{r, echo=T}
+whsAnnBdatNum_pca_scaled <- prcomp(whsAnnBdatNum, scale= T)
+biplot(whsAnnBdatNum_pca_scaled, pc.biplot = T, scale = 0)
+plot(whsAnnBdatNum_pca_scaled$x[c("UnitedStatesofAmerica","UnitedKingdom","China","India","Mexico","Australia","Israel","Italy","Ireland","Sweden"),1:2])
+text(whsAnnBdatNum_pca_scaled$x[c("UnitedStatesofAmerica","UnitedKingdom","China","India","Mexico","Australia","Israel","Italy","Ireland","Sweden"),1], 
+     whsAnnBdatNum_pca_scaled$x[c("UnitedStatesofAmerica","UnitedKingdom","China","India","Mexico","Australia","Israel","Italy","Ireland","Sweden"),2],
+     rownames(whsAnnBdatNum_pca_scaled$x[c("UnitedStatesofAmerica","UnitedKingdom","China","India","Mexico","Australia","Israel","Italy","Ireland","Sweden"),]), pos=1)
+```
+
+> The plot here doesn't have a principal component dominating. 
+
+> HOMICIDE and SUICIDE contribute most to the top 2 PCs. 
+
+> HOMICIDE is positive and SUICIDE is negative. This represents the transformation required to HOMICIDE and SUICIDE to rotate them to PC1 and PC2. 
+
+> The countries grouped together has similar health statistics that are rotated onto PC1 and PC2. 
+
 
 ### For *extra 8 points*
 
@@ -113,6 +131,21 @@ Try the following:
 
 Using function `kmeans` perform K-means clustering on *explicitly scaled* (e.g. `kmeans(scale(x),2)`) world health statistics data for 2, 3 and 4 clusters.  Use `cluster` attribute in the output of `kmeans` to indicate cluster membership by color and/or shape of the corresponding symbols in the plot of the first two principal components generated independently on the same (scaled WHS) data.  E.g. `plot(prcomp(xyz)$x[,1:2],col=kmeans(xyz,4)$cluster)` where `xyz` is input data.  Describe the results.  Which countries are clustered together for each of these choices of $K$?
 
+### Sub-problem 2a Answer
+
+```{r, echo=T}
+plot(prcomp(scale(whsAnnBdatNum))$x[, 1:2], col=kmeans(scale(whsAnnBdatNum),2)$cluster)
+text(whsAnnBdatNum_pca_scaled$x[, 1], 
+     whsAnnBdatNum_pca_scaled$x[, 2],
+     rownames(whsAnnBdatNum_pca_scaled$x), pos=1, font = 1)
+plot(prcomp(scale(whsAnnBdatNum))$x[, 1:2], col=kmeans(scale(whsAnnBdatNum),3)$cluster)
+plot(prcomp(scale(whsAnnBdatNum))$x[, 1:2], col=kmeans(scale(whsAnnBdatNum),4)$cluster)
+
+```
+
+> Countries are clustered mainly by their PC1 value. 
+
+
 ## Sub-problem 2b: variability of k-means clustering (5 points)
 
 By default, k-means clustering uses random set of centers as initial guesses of cluster centers.  Here we will explore variability of k-means cluster membership across several such initial random guesses.  To make such choices of random centers reproducible, we will use function `set.seed` to reset random number generator (RNG) used in R to make those initial guesses to known/controlled initial state.
@@ -122,9 +155,55 @@ Using the approach defined above, repeat k-means clustering with four clusters t
 Please bear in mind that the actual cluster identity is assigned randomly and does not matter -- i.e. if cluster 1 from the first run of `kmeans` (with random seed of 1) and cluster 4 from the run with the random seed of 2 contain the same observations (country/states in case of WHS dataset), they are *the same* clusters.
 
 
+### Sub-problem 2b Answer
+```{r, echo=T}
+set.seed(1)
+kmeans1 <- kmeans(scale(whsAnnBdatNum),4)
+plot(prcomp(scale(whsAnnBdatNum))$x[, 1:2], col=kmeans1$cluster)
+kmeans1$tot.withinss/kmeans1$betweenss
+
+set.seed(2)
+kmeans2 <- kmeans(scale(whsAnnBdatNum),4)
+plot(prcomp(scale(whsAnnBdatNum))$x[, 1:2], col=kmeans2$cluster)
+kmeans2$tot.withinss/kmeans2$betweenss
+
+set.seed(3)
+kmeans3 <- kmeans(scale(whsAnnBdatNum),4)
+plot(prcomp(scale(whsAnnBdatNum))$x[, 1:2], col=kmeans3$cluster)
+kmeans3$tot.withinss/kmeans3$betweenss
+
+```
+
 ## Sub-problem 2c: effect of `nstarts` parameter (5 points)
 
 Repeat the procedure implemented for the previous sub-problem (k-means with four clusters for RNG seeds of 1, 2 and 3) now using 100 as `nstart` parameter in the call to `kmeans`.  Represent results graphically as before.  How does cluster membership compare between those three runs now?  What is the ratio of within to between sum-of-squares in each of these three cases?  What is the impact of using higher than 1 (default) value of `nstart`?  What is the ISLR recommendation on this offered in Ch. 10.5.1?
+
+### Sub-problem 2c
+
+```{r, echo=T}
+set.seed(1)
+kmeans1 <- kmeans(scale(whsAnnBdatNum),4,nstart = 100)
+plot(prcomp(scale(whsAnnBdatNum))$x[, 1:2], col=kmeans1$cluster)
+kmeans1$tot.withinss/kmeans1$betweenss
+
+set.seed(2)
+kmeans2 <- kmeans(scale(whsAnnBdatNum),4,nstart = 100)
+plot(prcomp(scale(whsAnnBdatNum))$x[, 1:2], col=kmeans2$cluster)
+kmeans2$tot.withinss/kmeans2$betweenss
+
+set.seed(3)
+kmeans3 <- kmeans(scale(whsAnnBdatNum),4,nstart = 100)
+plot(prcomp(scale(whsAnnBdatNum))$x[, 1:2], col=kmeans3$cluster)
+kmeans3$tot.withinss/kmeans3$betweenss
+
+```
+
+> Membership doesn't change.
+
+> Ratios are now the same across 3 random seeds. 
+
+> It will only report best result of 100 random runs, i.e. smallest value of within/between ratio. 
+
 
 ### For *extra 8 points*
 
@@ -140,16 +219,56 @@ Try the following:
 
 Cluster country states in (scaled) world health statistics data using default (Euclidean) distance and "complete", "average", "single" and "ward" linkages in the call to `hclust`.  Plot each clustering hierarchy, describe the differences.  For comparison, plot results of clustering *untransformed* WHS data using default parameters (Euclidean distance, "complete" linkage) -- discuss the impact of the scaling on the outcome of hierarchical clustering.
 
+### Sub-problem 3a Answer
+
+```{r, echo=T}
+d = dist(scale(whsAnnBdatNum))
+d_orig = dist(whsAnnBdatNum)
+plot(hclust(d, method="complete"))
+plot(hclust(d, method="average"))
+plot(hclust(d, method="single"))
+plot(hclust(d, method="ward"))
+plot(hclust(d_orig, method="complete"))
+
+```
+
+> Complete method results in a clustering that has many levels. 
+
+> Average method yields many 1-node cluster, and classifies many node to the same level. 
+
+> Single method takes a very hierarchical way and lowers one level by each split. 
+
+> Ward makes several large clusters, then almost put all nodes in the large cluster at same level. 
+
+> Scaling avoids making any single node too powerful to efficiently cluster other nodes. 
 
 ## Sub-problem 3b: compare k-means and hierarchical clustering (5 points)
 
 Using function `cutree` on the output of `hclust` determine assignment of the countries in WHS dataset into top four clusters when using Euclidean distance and "complete" linkage.  Use function `table` to compare membership of these clusters to those produced by k-means clustering with four clusters in the Problem 2(c) above.  Discuss the results.
 
+### Sub-problem 3b Answer
+
+```{r, echo=T}
+d = dist(scale(whsAnnBdatNum))
+table(cutree(hclust(d, method="complete"), k=4))
+table(kmeans2$cluster)
+
+```
+
+> K-means produces a clustering that is more evenly distributed. 
 
 ## Sub-problem 3c: cluster variables by correlation (5 points)
 
 Use (casted as distance) one-complement of Spearman correlation between *attributes* in world health statistics dataset to cluster *attributes* of WHS dataset.  E.g. `hclust(as.dist(1-cor(xyz,method="spearman")))` would cluster columns (as opposed to rows) in the matrix `xyz`.  Plot the results -- which variables tend to cluster together, why do you think that is?  Compare results obtained by this approach for scaled and untransformed WHS dataset?  How do they compare? What do you think is the explanation?
 
+### Sub-problem 3c Answer
+
+```{r, echo=T}
+plot(hclust(as.dist(1-cor(whsAnnBdatNum,method="spearman"))))
+
+```
+
+> The variables that are clustered together have higher correlation with each others. 
 
 ### For *extra 4 points*
 
