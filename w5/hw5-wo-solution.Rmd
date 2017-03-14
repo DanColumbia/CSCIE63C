@@ -294,7 +294,7 @@ CACH is the most included variable.
 
 Splitting computer hardware dataset into training and test as shown above, please calculate and plot training and test errors (MSE) for each model size for several of the methods available for `regsubsets`.  Using `which` field investigate stability of variable selection at each model size across multiple selections of training/test data.  Discuss these results -- e.g. what model size appears to be most useful by this approach, what is the error rate corresponing to it, how stable is this conclusion across multiple methods for the best subset selection, how does this error compare to that of ERP (PRP estimate by dataset authors)?
 
-```{r predictRegsubsets,echo=TRUE}
+```{r predictRegsubsets1,echo=TRUE}
 predict.regsubsets <- function (object, newdata, id, ...){
   form=as.formula(object$call [[2]])
   mat=model.matrix(form,newdata)
