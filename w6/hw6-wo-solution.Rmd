@@ -124,6 +124,22 @@ Try the following:
 * Demonstrate equivalence of the results as obtained by `prcomp(x)` and `cmdscale(dist(x))` where `x` represents scaled WHS dataset.
 * Explore use of multidimensional scaling (MDS) tools available in library `MASS` such as `sammon` and `isoMDS`.  Present their results and discuss the differences between them and PCA output.  No, there was nothing on that in the lecture -- thus it is for extra points and to broaden your horizons.
 
+### Sub-problem 1 Extra
+
+```{r, echo=T}
+whsAnnBdatNum_pca_logtransformed <- prcomp(log(whsAnnBdatNum+0.0000001), scale= T)
+biplot(whsAnnBdatNum_pca_logtransformed, pc.biplot = T, scale = 0)
+
+plot(prcomp(scale(whsAnnBdatNum))$x[, 1:2])
+plot(cmdscale(dist(scale(whsAnnBdatNum))))
+
+
+```
+
+> Log transformation makes attributes' value on each PC roughly in same range. So they can be seen on the plot. 
+
+
+
 
 # Problem 2: K-means clustering (15 points)
 
@@ -213,6 +229,34 @@ Try the following:
 * Try using `silhouette` from the library `cluster` as another tool for assessing cluster strength for some of the clusters obtained here and describe the results
 
 
+### Sub-problem 2 Extra
+
+```{r, echo=T}
+set.seed(1)
+
+table(kmeans(scale(whsAnnBdatNum),4,nstart = 1)$cluster)
+table(kmeans(scale(whsAnnBdatNum),4,nstart = 5)$cluster)
+table(kmeans(scale(whsAnnBdatNum),4,nstart = 10)$cluster)
+table(kmeans(scale(whsAnnBdatNum),4,nstart = 20)$cluster)
+table(kmeans(scale(whsAnnBdatNum),4,nstart = 50)$cluster)
+
+table(kmeans(scale(whsAnnBdatNum),2,nstart = 1)$cluster)
+table(kmeans(scale(whsAnnBdatNum),2,nstart = 5)$cluster)
+table(kmeans(scale(whsAnnBdatNum),2,nstart = 10)$cluster)
+
+plot(silhouette(kmeans(scale(whsAnnBdatNum),2,nstart = 100)$cluster, dist = dist(whsAnnBdatNum, "canberra")))
+plot(silhouette(kmeans(scale(whsAnnBdatNum),3,nstart = 100)$cluster, dist = dist(whsAnnBdatNum, "canberra")))
+plot(silhouette(kmeans(scale(whsAnnBdatNum),4,nstart = 100)$cluster, dist = dist(whsAnnBdatNum, "canberra")))
+plot(silhouette(kmeans(scale(whsAnnBdatNum),5,nstart = 100)$cluster, dist = dist(whsAnnBdatNum, "canberra")))
+plot(silhouette(kmeans(scale(whsAnnBdatNum),6,nstart = 100)$cluster, dist = dist(whsAnnBdatNum, "canberra")))
+
+
+```
+
+> Smaller number of clusters require smaller `nstarts` to converge. 
+
+> From silhouette plots, 2 clusters might be the optimal partition. 
+
 # Problem 3: Hierarchical clustering (20 points)
 
 ## Sub-problem 3a: hierachical clustering by different linkages (10 points)
@@ -227,7 +271,7 @@ d_orig = dist(whsAnnBdatNum)
 plot(hclust(d, method="complete"))
 plot(hclust(d, method="average"))
 plot(hclust(d, method="single"))
-plot(hclust(d, method="ward"))
+plot(hclust(d, method="ward.D"))
 plot(hclust(d_orig, method="complete"))
 
 ```
@@ -265,14 +309,36 @@ Use (casted as distance) one-complement of Spearman correlation between *attribu
 
 ```{r, echo=T}
 plot(hclust(as.dist(1-cor(whsAnnBdatNum,method="spearman"))))
+plot(hclust(as.dist(1-cor(scale(whsAnnBdatNum) ,method="spearman"))))
 
 ```
 
 > The variables that are clustered together have higher correlation with each others. 
 
+> Scaled or untransformed make no difference. 
+
+> Because scaling doesn't affect their correlation, the correlation is a standardized metric. 
+
 ### For *extra 4 points*
 
 Use contingency tables to compare cluster memberships for several top clusters across different choices of linkage (e.g. "complete","ward","single") and distance (Euclidean, Manhattan, one-complement of correlation coefficient).  Discuss the results.
+
+### Sub-problem 3 Extra
+
+```{r, echo=T}
+d = dist(scale(whsAnnBdatNum))
+d1 = dist(scale(whsAnnBdatNum), method = "manhattan")
+table(cutree(hclust(d, method="complete"), k=4))
+table(cutree(hclust(d, method="ward.D"), k=4))
+table(cutree(hclust(d, method="single"), k=4))
+table(cutree(hclust(d1, method="complete"), k=4))
+table(cutree(hclust(d1, method="ward.D"), k=4))
+table(cutree(hclust(d1, method="single"), k=4))
+```
+
+> Different distance methods make clusterings different, but this also depends on the clustering methods. 
+
+> Single clustering methods shows no difference with the 2 distance methods. Complete and Ward shows great difference. 
 
 
 # Appendix: pre-processing of WHS data
