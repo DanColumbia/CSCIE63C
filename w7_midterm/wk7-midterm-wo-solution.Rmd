@@ -50,6 +50,8 @@ for(i in 1:(ncol(red)-1)){
 
 > For red wine, volatile.acidity, citric.acid, sulphates, alcohol can be predictors. Volatile.acidity is negative correlated with quality. 
 
+> From summary, it's clear that doing transformation on data to make them roughly in same scale is necessary for analysis. 
+
 ## White Wine
 ```{r p1_white, echo=T}
 white <- read.csv("winequality-white.csv", sep = ";")
@@ -251,7 +253,9 @@ mean(dfTmp[dfTmp$trainTest=='test'&dfTmp$vars==7,]$mse)
 
 Use regularized approaches (i.e. lasso and ridge) to model quality of red and white wine (separately).  Compare resulting models (in terms of number of variables and their effects) to those selected in the previous two tasks (by `regsubsets` and resampling), comment on differences and similarities among them. 
 
-```{r p4_red, echo=T}
+## Ridge
+### Red Wine
+```{r p4_ridge_red, echo=T}
 x <- model.matrix(quality~.,red)
 y <- red[,"quality"]
 ridgeRes <- glmnet(x,y,alpha=0)
@@ -262,8 +266,8 @@ cvRidgeRes <- cv.glmnet(x,y,alpha=0)
 mean((y-predict(ridgeRes,x,type="response",s=cvRidgeRes$lambda.min))^2)
 mean((y-predict(ridgeRes,x,type="response",s=cvRidgeRes$lambda.1se))^2)
 ```
-
-```{r p4_white, echo=T}
+### White Wine
+```{r p4_ridge_white, echo=T}
 x <- model.matrix(quality~.,white)
 y <- white[,"quality"]
 ridgeRes <- glmnet(x,y,alpha=0)
@@ -275,7 +279,33 @@ mean((y-predict(ridgeRes,x,type="response",s=cvRidgeRes$lambda.min))^2)
 mean((y-predict(ridgeRes,x,type="response",s=cvRidgeRes$lambda.1se))^2)
 ```
 
-> Ridge regression gives a slightly better result than regsubsets and cv selected 7 vars model when lambda is set to min value. It gives an equivalent result when lambda is set to 1se level. 
+## Lasso
+### Red Wine
+```{r p4_lasso_red, echo=T}
+x <- model.matrix(quality~.,red)
+y <- red[,"quality"]
+ridgeRes <- glmnet(x,y,alpha=1)
+plot(ridgeRes)
+
+cvRidgeRes <- cv.glmnet(x,y,alpha=1)
+
+mean((y-predict(ridgeRes,x,type="response",s=cvRidgeRes$lambda.min))^2)
+mean((y-predict(ridgeRes,x,type="response",s=cvRidgeRes$lambda.1se))^2)
+```
+### White Wine
+```{r p4_lasso_white, echo=T}
+x <- model.matrix(quality~.,white)
+y <- white[,"quality"]
+ridgeRes <- glmnet(x,y,alpha=1)
+plot(ridgeRes)
+
+cvRidgeRes <- cv.glmnet(x,y,alpha=1)
+
+mean((y-predict(ridgeRes,x,type="response",s=cvRidgeRes$lambda.min))^2)
+mean((y-predict(ridgeRes,x,type="response",s=cvRidgeRes$lambda.1se))^2)
+```
+
+> Ridge and Lasso regressions give a slightly better result than regsubsets and cv selected 7 vars model when lambda is set to min value. It gives an equivalent result when lambda is set to 1se level. 
 
 
 # Sub-problem 5: PCA (10 points)
@@ -283,10 +313,41 @@ mean((y-predict(ridgeRes,x,type="response",s=cvRidgeRes$lambda.1se))^2)
 Merge data for red and white wine (function `rbind` allows merging of two matrices/data frames with the same number of columns) and plot data projection to the first two principal components (e.g. biplot or similar plots).  Does this representation suggest presence of clustering structure in the data?  Does wine type (i.e. red or white) or quality appear to be associated with different regions occupied by observations in the plot? Please remember *not* to include quality attribute or wine type (red or white) indicator in your merged data, otherwise, apparent association of quality or wine type with PCA layout will be influenced by presence of those indicators in your data.
 
 ```{r p5, echo=T}
+red <- read.csv("winequality-red.csv", sep=";")
+white <- read.csv("winequality-white.csv", sep=";")
 
+wine <- rbind(red, white)
+wine$quality <- NULL
 
+wine_pca <- prcomp(wine, scale. = T)
+wine_pca$x
+biplot(wine_pca, pc.biplot = T, scale = 0)
 ```
+
+> The data seems to form 3 clusters on the PC1 and PC2 projection space. 
+
+> Can't tell for sure if wine type of quality is associated with certain regions. It seems red wine points(with smaller row numbers) occupy top left corner, while white wine points occupy top right. 
 
 # Extra 10 points: model wine quality using principal components
 
 Compute PCA representation of the data for one of the wine types (red or white) *excluding wine quality attribute* (of course!). Use resulting principal components (slot `x` in the output of `prcomp`) as new predictors to fit a linear model of wine quality as a function of these predictors.  Compare resulting fit (in terms of MSE, r-squared, etc.) to those obtained above.  Comment on the differences and similarities between these fits.
+
+```{r extra, echo=T}
+red_xquality <- red
+red_xquality$quality <- NULL
+
+red_pca <- prcomp(red_xquality)
+
+red_pca_fit <-  lm(red$quality~ red_pca$x)
+
+
+mean((red_pca_fit$fitted.values - red$quality)^2)
+
+summary(red_pca_fit)
+```
+
+> The MSE is lower than all models above. 
+
+> The similarity of the above fits is that they are all based on linear models. 
+
+> All other models above except PCA do no rotation to the feature space. 
