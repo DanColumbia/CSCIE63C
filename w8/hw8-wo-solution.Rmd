@@ -41,22 +41,163 @@ If you write your code with reusability in mind, applying it to "quakes" should 
 
 Present plots of (total) within and between cluster variance provided by K-means clustering on scaled WHS data for 2 through 20 clusters.  Choose large enough value of `nstart` for better stability of the results across multiple trials and evaluate stability of those results across several runs.  Discuss the results and whether the shape of the curves suggest specific number of clusters in the data.
 
+```{r p1, echo=T}
+whsAnnBdatNum <- read.table("whs2016_AnnexB-data-wo-NAs.txt",sep="\t",header=TRUE,quote="")
+whsAnnBdatNum <- scale(whsAnnBdatNum)
+w=numeric(20)
+for ( k in 1:20 ) {
+kf=kmeans(whsAnnBdatNum,k,nstart = 100)
+w[k] = kf$tot.withinss
+}
+plot(1:20,w,type="b",lwd=2,pch=19,xlab="K",
+ylab=expression("SS[within]"))
+
+w=numeric(20)
+for ( k in 1:20 ) {
+kf=kmeans(whsAnnBdatNum,k,nstart = 100)
+w[k] = kf$betweenss
+}
+plot(1:20,w,type="b",lwd=2,pch=19,xlab="K",
+ylab=expression("SS[between]"))
+
+w=numeric(20)
+for ( k in 2:20 ) {
+kf=kmeans(whsAnnBdatNum,k,nstart = 100)
+w[k] = (kf$betweenss/(k-1))/
+(kf$tot.withinss/(nrow(whsAnnBdatNum)-k))
+}
+plot(2:20,w[-1],type="b", lwd=2,pch=19,xlab="K",
+ylab="CH index")
+```
+> The CH-index plot suggests 2 clusters would be optimal. 
+
+```{r p1_quakes, echo=T}
+w=numeric(20)
+for ( k in 1:20 ) {
+kf=kmeans(quakes,k,nstart = 100)
+w[k] = kf$tot.withinss
+}
+plot(1:20,w,type="b",lwd=2,pch=19,xlab="K",
+ylab=expression("SS[within]"))
+
+w=numeric(20)
+for ( k in 1:20 ) {
+kf=kmeans(quakes,k,nstart = 100)
+w[k] = kf$betweenss
+}
+plot(1:20,w,type="b",lwd=2,pch=19,xlab="K",
+ylab=expression("SS[between]"))
+
+w=numeric(20)
+for ( k in 2:20 ) {
+kf=kmeans(quakes,k,nstart = 100)
+w[k] = (kf$betweenss/(k-1))/
+(kf$tot.withinss/(nrow(quakes)-k))
+}
+plot(2:20,w[-1],type="b", lwd=2,pch=19,xlab="K",
+ylab="CH index")
+```
 
 # Problem 2: gap statistics (15 points)
 
 Using code provided in the lecture slides for calculating gap statistics or one of its implementations available in R (e.g. `clusGap` from library `cluster`) compute and plot gap statistics for K-means clustering of scaled WHS data for 2 through 20 clusters.  Discuss whether it indicates presence of clearly defined cluster structure in this data.
 
+```{r p2, echo=T}
+gskmn <- clusGap(whsAnnBdatNum, FUNcluster=kmeans, K.max = 20, B=60, nstart=100)
+plot(2:20,gskmn$Tab[2:20,3],type="b", lwd=2,pch=19,xlab="K",
+ylab="Gap Stats")
+
+```
+
+> Gap statistics doesn't seem to have a clear clustering suggestion within 20 clusters. 
+
+```{r p2_quakes, echo=T}
+gskmn <- clusGap(quakes, FUNcluster=kmeans, K.max = 20, B=60, nstart=100)
+plot(2:20,gskmn$Tab[2:20,3],type="b", lwd=2,pch=19,xlab="K",
+ylab="Gap Stats")
+
+```
 
 # Problem 3: stability of hierarchical clustering (15 points)
 
 For top 2, 3 and 4 clusters (as obtained by `cutree` at corresponding levels of `k`) found by Ward method in `hclust` and by K-means when applied to the scaled WHS data compare cluster memberships between these two methods and describe their concordance.  This problem is similar to the one in 6th week assignment, but this time it is *required* to: 1) use two dimensional contingency tables implemented by `table` to compare membership between two assignments of observations to clusters, and 2) programmatically re-order rows and columns in the `table` outcome in the increasing order of observations shared between two clusters (please see examples in lecture slides).
 
+```{r p3,echo=T}
+matrix.sort <- function(m) {
+  if (nrow(m) != ncol(m)) { stop("Not diagonal") }
+  if(is.null(rownames(m))) { rownames(m) = 1:nrow(matrix)}
+  row.max = apply(m,1,which.max)
+  if(any(table(row.max) != 1)) {
+    col.max = apply(m,2,which.max)
+    if ( any(table(col.max)!=1) ) {
+      warning("Ties cannot be resolved")
+    }
+    return(m[,order(col.max)])
+  }
+  m[order(row.max),]
+}
 
+cmp.shortcut = function(K) {
+  matrix.sort(
+    table(
+          kmeans=kmeans(whsAnnBdatNum,K,nstart = 100)$cluster,
+          hcluster=cutree(hclust(dist(whsAnnBdatNum), method="ward.D2"), k=K)
+          )
+  )
+}
+cmp.shortcut(2)
+cmp.shortcut(3)
+cmp.shortcut(4)
+```
+
+```{r p3_extra, echo=T}
+cmp.shortcut = function(K) {
+  matrix.sort(
+    table(
+          kmeans=kmeans(quakes,K,nstart = 100)$cluster,
+          hcluster=cutree(hclust(dist(quakes), method="ward.D2"), k=K)
+          )
+  )
+}
+cmp.shortcut(2)
+cmp.shortcut(3)
+cmp.shortcut(4)
+
+```
 ## For *extra* 5 points: between/within variance in hierarchical clusters
 
 Using functions `between` and `within` provided in the lecture slides calculate between and (total) within cluster variances for top 2 through 20 clusters defined by Ward's hierarchical clustering when applied to scaled WHS data.  Plot the results.  Compare their behavior to that of the same statistics when obtained for K-means clustering above.
 
-
 # Problem 4: Brute force randomization in hierarchical clustering (15 points)
 
 Compare distribution of the heights of the clusters defined by `hclust` with Ward's clustering of Euclidean distance between countries in scaled WHS dataset and those obtained by applying the same approach to the distances calculated on randomly permuted WHS dataset as illustrated in the lecture slides.  Discuss whether results of such brute force randomization are supportive of presence of unusually close or distant sets of observations within WHS data.
+
+```{r p4, echo=T}
+hcluster=hclust(dist(whsAnnBdatNum), method="ward.D2")
+ori.heights = hcluster$height
+rnd.heights = numeric()
+for ( i.sim in 1:100 ) {
+  data.rnd <-apply(whsAnnBdatNum,2,sample)
+  hw.rnd=hclust(dist(data.rnd),method="ward.D2")
+  rnd.heights <- c(rnd.heights,hw.rnd$height)
+}
+plot(ori.heights,rank(ori.heights)/length(ori.heights),col="red",xlab="height",ylab="F(height)",pch=19)
+points(rnd.heights,rank(rnd.heights)/length(rnd.heights),col="blue")
+
+```
+
+> The results suggest no unusually close or distant sets of observations within WHS data. 
+
+```{r p4_extra, echo=T}
+hcluster=hclust(dist(quakes), method="ward.D2")
+ori.heights = hcluster$height
+rnd.heights = numeric()
+for ( i.sim in 1:100 ) {
+  data.rnd <-apply(quakes,2,sample)
+  hw.rnd=hclust(dist(data.rnd),method="ward.D2")
+  rnd.heights <- c(rnd.heights,hw.rnd$height)
+}
+plot(ori.heights,rank(ori.heights)/length(ori.heights),col="red",xlab="height",ylab="F(height)",pch=19)
+points(rnd.heights,rank(rnd.heights)/length(rnd.heights),col="blue")
+
+```
