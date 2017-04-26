@@ -10,6 +10,9 @@ output:
 For this assignment we will use banknote authentication data (the one we worked with in week 2 assignment) to fit logistics regression model and evaluate performance of LDA, QDA and KNN classifiers.  As we have seen earlier this dataset should allow to predict which banknotes are authentic and which ones are forged fairly well, so we should expect to see low error rates for our classifiers.  Let's see whether some of those tools perform better than others on this data.
 
 ```{r, echo=T}
+library(SDMTools)
+library(MASS)
+library(ggplot2)
 banknote <- read.table("data_banknote_authentication.txt", sep = ",")
 colnames(banknote) <- c("variance","skewness","curtosis","entropy","class")
 ```
@@ -18,17 +21,160 @@ colnames(banknote) <- c("variance","skewness","curtosis","entropy","class")
 
 Fit logistic regression model of the class attribute using remaining four attributes as predictors in the model.  Produce summary of the model, describe which attributes appear to be significantly associated with the categorical outcome in this model.  Use this model to make predictions on the entire dataset and compare these predictions and corresponding true values of the class attribute using confusion matrix (i.e. contingency table).  Calculate error rate (would this be training or test error in this case?), sensitivity and specificity (assuming that we are predicting class "1").  Describe the results.
 
+```{r P1, echo=T}
+logistic <- glm(class~., data=banknote, family = binomial)
+summary(logistic)
+
+banknote$prediction <- predict(logistic, newdata=banknote, type="response")
+
+confusion.matrix(banknote$class, banknote$prediction)
+```
+
+> variance, skewness, curtosis are significantly associated with the outcome. 
+
+> NPV = 757/763 = 0.9921363, PPV = 604/609 = 0.9917898, Sensitivity = 604/610 = 0.9901639, Specificity = 757/762 = 0.9934383
+
+> The error rate is for training data. 
+
 # Problem 2 (10 points): LDA and QDA
 
 Using LDA and QDA implementations available in the package `MASS`, calculate confusion matrix, (training) error rate, sensitivity and specificity for each of them.  Compare them to those of logistic regression.  Describe the results.
+
+```{r P2, echo=T}
+lda.fit <- lda(class~., data=banknote)
+banknote$prediction.lda <- predict(lda.fit, newdata=banknote)$posterior[,2]
+confusion.matrix(banknote$class, banknote$prediction.lda)
+
+```
+
+> It is the same resuilt as logistic regression. 
 
 # Problem 3 (10 points): KNN
 
 Using `knn` from library `class`, calculate confusion matrix, (training) error rate, sensitivity/specificity for  one and ten nearest neighbors models.  Compare them to corresponding results from LDA, QDA and logistic regression. Describe results of this comparison -- discuss whether it is surprising to see low *training* error for KNN classifier with $k=1$.
 
+```{r P3, echo=T}
+library(class)
+knn.fit1 <- class::knn1(train=banknote[1:4],test=banknote[1:4],cl=as.factor(banknote$class))
+confusion.matrix(banknote$class, as.numeric(knn.fit1))
+
+knn.fit10 <- class::knn(train=banknote[1:4],test=banknote[1:4],cl=as.factor(banknote$class),k=10, prob=TRUE)
+confusion.matrix(banknote$class, as.numeric(knn.fit10))
+
+```
+
+> NPV = 762/762 = 1, PPV = 610/610 = 1, Sensitivity = 610/610 = 1, Specificity = 762/762 = 1
+
+> The error rate is perfect. Not surprising because knn1 is overfitting the dataset by considering only the label of the point itself as predictor. 
+
 # Problem 4 (30 points): compare test errors of logistic regression, LDA, QDA and KNN
 
 Using resampling approach of your choice (e.g. cross-validation, bootstrap, etc.) obtain test error as well as sensitivity and specificity for each of these methods (logistic regression, LDA, QDA, KNN with $k=1,2,5,10,20,50,100$).  Present results in the form of boxplots, compare test error/sensitivity/specificity across these methods and discuss their relative performance.
+
+```{r P4, echo=T}
+nTries <- 30
+resultDF <- data.frame()
+for ( iTry in 1:nTries ) {
+  banknote$rnd <- runif(nrow(banknote))
+  train <- banknote[banknote$rnd<=0.8,]
+  test <- banknote[banknote$rnd>0.8,]
+  train$rnd <- NULL
+  test$rnd <- NULL
+
+  lr.fit <- glm(class~., data=train, family = binomial)
+  test$prediction <- predict(lr.fit, newdata=test, type="response")
+  performance <- accuracy(test$class, test$prediction)
+  resultDF <- rbind(resultDF, data.frame("nTry"=iTry, "method"="lr.fit", 
+                                         "accuracy"=performance$prop.correct,
+                                         "specificity"=performance$specificity,
+                                         "sensitivity"=performance$sensitivity,
+                                         "auc"=performance$AUC))
+  
+  lda.fit <- lda(class~., data=train)
+  test$prediction <- predict(lda.fit, newdata=test)$posterior[,2]
+  performance <- accuracy(test$class, test$prediction)
+  resultDF <- rbind(resultDF, data.frame("nTry"=iTry, "method"="lda.fit", 
+                                         "accuracy"=performance$prop.correct,
+                                         "specificity"=performance$specificity,
+                                         "sensitivity"=performance$sensitivity,
+                                         "auc"=performance$AUC))
+
+  qda.fit <- qda(class~., data=train)
+  test$prediction <- predict(qda.fit, newdata=test)$posterior[,2]
+  performance <- accuracy(test$class, test$prediction)
+  resultDF <- rbind(resultDF, data.frame("nTry"=iTry, "method"="qda.fit", 
+                                         "accuracy"=performance$prop.correct,
+                                         "specificity"=performance$specificity,
+                                         "sensitivity"=performance$sensitivity,
+                                         "auc"=performance$AUC))
+
+  knn.fit1<- class::knn1(train=train[1:4],test=test[1:4],cl=as.factor(train$class))
+  performance <- accuracy(test$class, as.numeric(knn.fit1))
+  resultDF <- rbind(resultDF, data.frame("nTry"=iTry, "method"="knn.fit1", 
+                                         "accuracy"=performance$prop.correct,
+                                         "specificity"=performance$specificity,
+                                         "sensitivity"=performance$sensitivity,
+                                         "auc"=performance$AUC))
+  
+  knn.fit2<- class::knn(train=train[1:4],test=test[1:4],cl=as.factor(train$class),k=2, prob=TRUE)
+  performance <- accuracy(test$class, as.numeric(knn.fit2))
+  resultDF <- rbind(resultDF, data.frame("nTry"=iTry, "method"="knn.fit2", 
+                                         "accuracy"=performance$prop.correct,
+                                         "specificity"=performance$specificity,
+                                         "sensitivity"=performance$sensitivity,
+                                         "auc"=performance$AUC))
+  
+  knn.fit5<- class::knn(train=train[1:4],test=test[1:4],cl=as.factor(train$class),k=5, prob=TRUE)
+  performance <- accuracy(test$class, as.numeric(knn.fit5))
+  resultDF <- rbind(resultDF, data.frame("nTry"=iTry, "method"="knn.fit5", 
+                                         "accuracy"=performance$prop.correct,
+                                         "specificity"=performance$specificity,
+                                         "sensitivity"=performance$sensitivity,
+                                         "auc"=performance$AUC))
+  
+  knn.fit10<- class::knn(train=train[1:4],test=test[1:4],cl=as.factor(train$class),k=10, prob=TRUE)
+  performance <- accuracy(test$class, as.numeric(knn.fit10))
+  resultDF <- rbind(resultDF, data.frame("nTry"=iTry, "method"="knn.fit10", 
+                                         "accuracy"=performance$prop.correct,
+                                         "specificity"=performance$specificity,
+                                         "sensitivity"=performance$sensitivity,
+                                         "auc"=performance$AUC))
+  
+  knn.fit20<- class::knn(train=train[1:4],test=test[1:4],cl=as.factor(train$class),k=20, prob=TRUE)
+  performance <- accuracy(test$class, as.numeric(knn.fit20))
+  resultDF <- rbind(resultDF, data.frame("nTry"=iTry, "method"="knn.fit20", 
+                                         "accuracy"=performance$prop.correct,
+                                         "specificity"=performance$specificity,
+                                         "sensitivity"=performance$sensitivity,
+                                         "auc"=performance$AUC))
+  
+  knn.fit50<- class::knn(train=train[1:4],test=test[1:4],cl=as.factor(train$class),k=50, prob=TRUE)
+  performance <- accuracy(test$class, as.numeric(knn.fit50))
+  resultDF <- rbind(resultDF, data.frame("nTry"=iTry, "method"="knn.fit50", 
+                                         "accuracy"=performance$prop.correct,
+                                         "specificity"=performance$specificity,
+                                         "sensitivity"=performance$sensitivity,
+                                         "auc"=performance$AUC))
+  
+  knn.fit100<- class::knn(train=train[1:4],test=test[1:4],cl=as.factor(train$class),k=100, prob=TRUE)
+  performance <- accuracy(test$class, as.numeric(knn.fit100))
+  resultDF <- rbind(resultDF, data.frame("nTry"=iTry, "method"="knn.fit100", 
+                                         "accuracy"=performance$prop.correct,
+                                         "specificity"=performance$specificity,
+                                         "sensitivity"=performance$sensitivity,
+                                         "auc"=performance$AUC))
+  
+}
+
+
+ggplot(resultDF,aes(x=factor(method),y=accuracy)) + geom_boxplot() + ggtitle("accuracy")
+ggplot(resultDF,aes(x=factor(method),y=specificity)) + geom_boxplot() + ggtitle("specificity")
+ggplot(resultDF,aes(x=factor(method),y=sensitivity)) + geom_boxplot() + ggtitle("sensitivity")
+ggplot(resultDF,aes(x=factor(method),y=auc)) + geom_boxplot() + ggtitle("auc")
+
+```
+
+> lr.fit is the best classifier. 
 
 # Extra 10 points problem: naive Bayes classifier
 
