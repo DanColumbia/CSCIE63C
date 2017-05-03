@@ -357,15 +357,81 @@ The point of this homework is to assess how these aspects of neural network fitt
 
 Simulate data with n=1000 observations and p=3 covariates -- all random variables from standard normal distribution.  Create two category class variable assigning all observations within a sphere with radius of 1.5 centered at 3D zero to one class category and all others -- to the second.  Since you will be reusing this code in the following two problems it is probably best to turn this procedure into a function with appropriate parameters.  Check that resulting class assignments split these observations very roughly evenly between these two groups.  Plot values of the resulting covariates projected at each pair of the axes indicating classes to which observations belong with symbol color and/or shape (you can use function `pairs`, for example).  What is the smallest number of planes in 3D space that would completely enclose points from the "inner" class?
 
+```{r p1, fig.height=7,fig.width=7, echo=T}
+# fix seed so that narrative always matches the plots:
+hw12sim <- function(nObs=1000, ncol=3){
+  set.seed(1234567890)
+  simTmp <- data.frame(matrix(rnorm(ncol*nObs),ncol=ncol))
+  simTmp$Y <- ifelse(sqrt(rowSums(simTmp^2)) <= 1.5, 1, 0)
+  return(simTmp)
+}
+
+simTmp = hw12sim()
+table(simTmp$Y) 
+
+plot(simTmp[c('X1','X2')],col=as.numeric(factor(simTmp$Y)),pch=as.numeric(factor(simTmp$Y)),xlab="X1",ylab="X2")
+
+plot(simTmp[c('X1','X3')],col=as.numeric(factor(simTmp$Y)),pch=as.numeric(factor(simTmp$Y)),xlab="X1",ylab="X3")
+
+plot(simTmp[c('X3','X2')],col=as.numeric(factor(simTmp$Y)),pch=as.numeric(factor(simTmp$Y)),xlab="X3",ylab="X2")
+
+```
+
+> Minimal of 6 planes is required to separate inner class from outer class. 
 
 # Problem 2 (20 points): neural network classifier
 
 For the dataset simulated above fit neural networks with 1 through 6 nodes in a single hidden layer (use `neuralnet` implementation).  For each of them calculate training error (see an example in Preface where it was calculated using `err.fct` field in the result returned by `neuralnet`).  Simulate another independent dataset (with n=10,000 observations to make resulting test error estimates less variable) using the same procedure as above (3D, two classes, decision boundary as a sphere of 1.5 radius) and use it to calculate test error at each number of hidden nodes.  Plot training and test errors as function of the number of nodes in the hidden layer.  What does resulting plot tells you about the interplay between model error, model complexity and problem geometry?  What is the geometrical interpretation of this error behavior?
 
+```{r p2,fig.height=7,fig.width=7}
+simTmp = hw12sim(nObs = 10000, ncol = 3)
+
+finalDF <- data.frame()
+for(i in 1:6){
+  nnRes <- neuralnet(Y~X1+X2+X3,simTmp,hidden = i,rep=5)
+  err = signif(sum(nnRes$err.fct(nnRes$response,nnRes$net.result[[1]][,1])),6)
+  finalDF <- rbind(finalDF, data.frame("node"=i, "error"=err))
+}
+
+plot(finalDF$node, finalDF$error)
+
+```
+
+> Increasing number of nodes in the hidden layer decreases errors. 
 
 # Problem 3 (30 points): evaluate impacts of sample size and noise
 
 Setup a simulation repeating procedure described above for n=100, 200 and 500 observations in the *training* set as well adding none, 1, 2 and 5 null variables to the training and test data (and to the covariates in formula provided to `neuralnet`).  Draw values for null variables from standard normal distribution as well and do not use them in the assignment of the observations to the class category (e.g. `x<-matrix(rnorm(600),ncol=6); cl<-as.numeric(factor(sqrt(rowSums(x[,1:3]^2))<1.5))` creates dataset with three informative and three null variables). Repeat calculation of training and test errors at least several times for each combination of sample size, number of null variables and size of the hidden layer simulating new training and test dataset every time to assess variability in those estimates.  Present resulting error rates so that the effects of sample size and fraction of null variables can be discerned and discuss their impact of the resulting model fits.  
+
+```{r p3,fig.height=7,fig.width=7}
+finalDF <- data.frame()
+for(i in c(100,200,500)){
+  for(j in c(1,2,5)){
+    for(hidden in 1:6){
+      simTmp = hw12sim(nObs = i, ncol = 3)
+      noise = hw12sim(nObs = i, ncol = j)
+      simTmp <- cbind(simTmp, noise[,1:j])
+
+      nnRes <- neuralnet(Y~.,simTmp,hidden = hidden)
+      err = signif(sum(nnRes$err.fct(nnRes$response,nnRes$net.result[[1]][,1])),6)
+      finalDF <- rbind(finalDF, data.frame("obs"=i, "node"=hidden, "error"=err))
+    }
+  }
+}
+
+for(i in c(100,200,500)){
+  for(hidden in 1:6){
+    simTmp = hw12sim(nObs = i, ncol = 3)
+    nnRes <- neuralnet(Y~X1+X2+X3,simTmp,hidden = hidden)
+    err = signif(sum(nnRes$err.fct(nnRes$response,nnRes$net.result[[1]][,1])),6)
+    finalDF <- rbind(finalDF, data.frame("obs"=i, "node"=hidden, "error"=err))
+  }
+}
+
+
+plot(finalDF$node, finalDF$error)
+
+```
 
 
 # Extra 20 points problem: model banknote authentication data
