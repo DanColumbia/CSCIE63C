@@ -7,7 +7,10 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-require(data.table)
+library(data.table)
+library(SDMTools)
+library(randomForest)
+library(e1071)
 ```
 
 # Preface
@@ -43,7 +46,11 @@ colnames(adult) <- c("age","workclass","fnlwgt","education","education_num","mar
 adult <- adult[workclass != ' Without-pay' & education!=' Preschool' & occupation!=' Armed-Forces']
 adult <- adult[native_country %in% c(' United-States',' Mexico', ' Philippines', ' South',' Puerto-Rico', ' England', ' Cuba', ' Canada', ' China', ' El-Salvador', ' India', ' India', ' Iran',
                                         ' Italy', ' Jamaica')]
+
+adult[income==' >50K', income:='1']
+adult[income==' <=50K', income:='0']
 adult <- droplevels(adult)
+adult$fnlwgt <- NULL
 summary(adult)
 
 hist(adult$age)
@@ -55,28 +62,139 @@ hist(adult$hours_per_week)
 table(adult$workclass)
 table(adult$education)
 table(adult$marital_status)
+table(adult$occupation)
 table(adult$relationship)
-table(adult$relationship)
+table(adult$race)
+table(adult$sex)
+table(adult$native_country)
+
 
 adult_modelmatrix <- model.matrix(income~., adult)
-adult_modelmatrix_pca <- prcomp(scale(adult_modelmatrix))
+adult_modelmatrix_pca <- prcomp(adult_modelmatrix)
+biplot(adult_modelmatrix_pca, pc.biplot = T, scale = 0)
+
+
+cor(y=as.numeric(adult$income),x=adult$age)
+cor(y=as.numeric(adult$income),x=adult$education_num)
+cor(y=as.numeric(adult$income),x=adult$capital_gain)
+cor(y=as.numeric(adult$income),x=adult$capital_loss)
+cor(y=as.numeric(adult$income),x=adult$hours_per_week)
+
+chisq.test(y=adult$income, x=adult$workclass)
+chisq.test(y=adult$income, x=adult$education)
+chisq.test(y=adult$income, x=adult$marital_status)
+chisq.test(y=adult$income, x=adult$occupation)
+chisq.test(y=adult$income, x=adult$relationship)
+chisq.test(y=adult$income, x=adult$race)
+chisq.test(y=adult$income, x=adult$sex)
+chisq.test(y=adult$income, x=adult$native_country)
+
 
 ```
 
-> Can't do rescale, there are columns 
+> Can't do rescale, there are columns having 0 variance
 
+> age, education_num, hours_per_week, education, marital_status, occupation, relationship are strong predictors. Others are weak. 
 
 # Problem 2: logistic regression (25 points)
 
 Develop logistic regression model of the outcome as a function of multiple predictors in the model.  Which variables are significantly associated with the outcome?  Test model performance on multiple splits of data into training and test subsets, summarize it in terms of accuracy/error, sensitivity/specificity and compare to the performance of other methods reported in the dataset description.
 
+```{r p2, echo=T}
+
+lr <- glm(income~., data=adult, family = "binomial")
+summary(lr)
+
+resultDF <- data.frame()
+for(i in 1:30){
+  adult$randomNumber <- runif(nrow(adult))
+  train <- adult[randomNumber<0.8,][,randomNumber:=NULL]
+  test <- adult[randomNumber>=0.8,][,randomNumber:=NULL]
+  adult$randomNumber <- NULL
+  lr <- glm(income~., data=train, family = "binomial")
+  test$prediction <- predict(lr, test, type="response")
+  resultDF <- rbind(resultDF, data.frame("i"=i, "accuracy"=accuracy(test$income, test$prediction)))
+}
+
+resultDF
+```
+
+> The variables with 3 *'s are significant variables
+
+> With multiple splits, the error rate is much higher compared to other methods. 
+
 # Problem 3: random forest (25 points)
 
 Develop random forest model of the categorized income. Present variable importance plots and comment on relative importance of different attributes in the model.  Did attributes showing up as more important in random forest model also appear as significantly associated with the outcome by logistic regression?  Test model performance on multiple splits of data into training and test subsets, compare test and out-of-bag error estimates, summarize model performance in terms of accuracy/error, sensitivity/specificity and compare to the performance of other methods reported in the dataset description.
 
+```{r p3, echo=T}
+rf <- randomForest(income~., data=adult)
+varImpPlot(rf)
+
+
+resultDF <- data.frame()
+for(i in 1:30){
+  adult$randomNumber <- runif(nrow(adult))
+  train <- adult[randomNumber<0.8,][,randomNumber:=NULL]
+  test <- adult[randomNumber>=0.8,][,randomNumber:=NULL]
+  adult$randomNumber <- NULL
+  rf <- randomForest(income~., data=train)
+  test$prediction <- predict(rf, test)
+  resultDF <- rbind(resultDF, data.frame("i"=i, "accuracy"=accuracy(test$income, test$prediction)))
+}
+
+resultDF
+```
+
+> The important variables in random forest are also those important for logistic regression
+
+> The error rate is at lower level compared to other methods
+
 # Problem 4: SVM (25 points)
 
 Develop SVM model of this data choosing parameters (e.g. choice of kernel, cost, etc.) that appear to yield better performance.  Test model performance on multiple splits of data into training and test subsets, summarize model performance in terms of accuracy/error, sensitivity/specificity and compare to the performance of other methods reported in the dataset description.
+
+```{r p4, echo=T}
+resultDF_linear=data.frame()
+for(i in 1:5){
+  set.seed(i)
+  adult$randomNumber <- runif(nrow(adult))
+  train <- adult[randomNumber<0.8,][,randomNumber:=NULL]
+  test <- adult[randomNumber>=0.8,][,randomNumber:=NULL]
+  adult$randomNumber <- NULL
+  tune.out=tune(svm,income~.,
+                data=train,kernel="linear",scale=T,
+                ranges=list(cost=c(1,5,10)))
+  result.set=summary(tune.out)$performances
+  cost=min(result.set[result.set$error==min(result.set$error),]$cost)
+  svm.model=svm(income~. ,data=train,kernel="linear",cost=cost, scale = T)
+  error.rate=1-accuracy(test$income,predict(svm.model,test[,-14]))$prop.correct
+  resultDF_linear=rbind(resultDF_linear, data.frame("cost"=cost, "error.rate"=error.rate))
+}
+resultDF_linear
+
+resultDF_radial=data.frame()
+for(i in 1:5){
+  set.seed(i)
+  adult$randomNumber <- runif(nrow(adult))
+  train <- adult[randomNumber<0.8,][,randomNumber:=NULL]
+  test <- adult[randomNumber>=0.8,][,randomNumber:=NULL]
+  adult$randomNumber <- NULL
+  
+  tune.out=tune(svm,income~.,
+                data=train,kernel="radial",scale=T,
+                ranges=list(cost=c(1,5,10),
+                            gamma=c(0.01,0.05,0.1)))
+  result.set=summary(tune.out)$performances
+  cost=result.set[result.set$error==min(result.set$error),][1,]$cost
+  gamma1=result.set[result.set$error==min(result.set$error),][1,]$gamma
+  svm.model=svm(income~., data=train,kernel="radial",cost=cost,gamma=gamma1, scale = T)
+  error.rate=1-accuracy(test$income,predict(svm.model,test[,-14]))$prop.correct
+  resultDF_radial=rbind(resultDF_radial, data.frame("cost"=cost,"gamma"=gamma1, "error.rate"=error.rate))
+}
+resultDF_radial
+
+```
 
 # Problem 5: compare logistic regression, random forest and SVM model performance (5 points)
 
