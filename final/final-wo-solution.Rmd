@@ -7,6 +7,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+require(data.table)
 ```
 
 # Preface
@@ -28,6 +29,25 @@ Lastly, the size of this dataset can make some of the modeling techniques run sl
 # Problem 1: univariate and unsupervised analysis (20 points)
 
 Download and read "Census Income" data into R and prepare graphical and numerical summaries of it: e.g. histograms of continuous attributes, contingency tables of categorical variables, scatterplots of continuous attributes with some of the categorical variables indicated by color/symbol shape, etc.  Perform principal components analysis of this data (do you need to scale it prior to that? how would you represent multilevel categorical attributes to be used as inputs for PCA?) and plot observations in the space of the first few principal components with subjects' gender and/or categorized income indicated by color/shape of the symbol.  Perform univariate assessment of associations between outcome we will be modeling and each of the attributes (e.g. t-test or logistic regression for continuous attributes, contingency tables/Fisher exact test/$\chi^2$ test for categorical attributes).  Summarize your observations from these assessments: does it appear that there is association between outcome and predictors? Which predictors seem to be more/less relevant?
+
+```{r p1, echo=T}
+adult.train.original <- read.table("adult.data",sep=",",header=FALSE,quote="")
+adult.test.original <- read.table("adult.test",sep=",",header=FALSE,quote="")
+adult.test.original$V15 <- as.character(adult.test.original$V15)
+adult.test.original$V15 <- substr(adult.test.original$V15, 1, nchar(adult.test.original$V15)-1)
+adult <- rbind(adult.train.original, adult.test.original)
+setDT(adult)
+adult <- adult[V1!=' ?' & V2!=' ?' & V3!=' ?' & V4!=' ?' & V5!=' ?' & V6!=' ?' & V7!=' ?' & V8!=' ?' & 
+                 V9!=' ?' & V10!=' ?' & V11!=' ?' & V12!=' ?' & V13!=' ?' & V14!=' ?',]
+colnames(adult) <- c("age","workclass","fnlwgt","education","education_num","marital_status","occupation","relationship","race","sex","capital_gain","capital_loss","hours_per_week","native_country","income")
+adult <- adult[workclass != ' Without-pay' & education!=' Preschool' & occupation!=' Armed-Forces']
+adult <- adult[native_country %in% c(' United-States',' Mexico', ' Philippines', ' South',' Puerto-Rico', ' England', ' Cuba', ' Canada', ' China', ' El-Salvador', ' India', ' India', ' Iran',
+                                        ' Italy', ' Jamaica')]
+adult <- droplevels(adult)
+summary(adult)
+
+
+```
 
 # Problem 2: logistic regression (25 points)
 
