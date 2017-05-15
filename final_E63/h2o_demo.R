@@ -1,4 +1,4 @@
-library(SparkR, lib.loc = "/home/jimubox/R/x86_64-pc-linux-gnu-library/3.3")
+library(SparkR)
 library(h2o)
 h2o.init()
 

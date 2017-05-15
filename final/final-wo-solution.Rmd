@@ -46,8 +46,25 @@ adult <- adult[native_country %in% c(' United-States',' Mexico', ' Philippines',
 adult <- droplevels(adult)
 summary(adult)
 
+hist(adult$age)
+hist(adult$education_num)
+hist(adult$capital_gain)
+hist(adult$capital_loss)
+hist(adult$hours_per_week)
+
+table(adult$workclass)
+table(adult$education)
+table(adult$marital_status)
+table(adult$relationship)
+table(adult$relationship)
+
+adult_modelmatrix <- model.matrix(income~., adult)
+adult_modelmatrix_pca <- prcomp(scale(adult_modelmatrix))
 
 ```
+
+> Can't do rescale, there are columns 
+
 
 # Problem 2: logistic regression (25 points)
 
