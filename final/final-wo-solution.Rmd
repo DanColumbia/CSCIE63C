@@ -106,7 +106,7 @@ lr <- glm(income~., data=adult, family = "binomial")
 summary(lr)
 
 resultDF <- data.frame()
-for(i in 1:30){
+for(i in 1:10){
   adult$randomNumber <- runif(nrow(adult))
   train <- adult[randomNumber<0.8,][,randomNumber:=NULL]
   test <- adult[randomNumber>=0.8,][,randomNumber:=NULL]
@@ -133,7 +133,7 @@ varImpPlot(rf)
 
 
 resultDF <- data.frame()
-for(i in 1:30){
+for(i in 1:10){
   adult$randomNumber <- runif(nrow(adult))
   train <- adult[randomNumber<0.8,][,randomNumber:=NULL]
   test <- adult[randomNumber>=0.8,][,randomNumber:=NULL]
@@ -159,16 +159,18 @@ resultDF_linear=data.frame()
 for(i in 1:5){
   set.seed(i)
   adult$randomNumber <- runif(nrow(adult))
-  train <- adult[randomNumber<0.8,][,randomNumber:=NULL]
-  test <- adult[randomNumber>=0.8,][,randomNumber:=NULL]
+  train <- adult[randomNumber<0.08,][,randomNumber:=NULL]
+  test <- adult[randomNumber>=0.08 & randomNumber<0.1,][,randomNumber:=NULL]
+  train_full <- adult[randomNumber<0.8,][,randomNumber:=NULL]
+  test_full <- adult[randomNumber>=0.8,][,randomNumber:=NULL]
   adult$randomNumber <- NULL
   tune.out=tune(svm,income~.,
                 data=train,kernel="linear",scale=T,
                 ranges=list(cost=c(1,5,10)))
   result.set=summary(tune.out)$performances
   cost=min(result.set[result.set$error==min(result.set$error),]$cost)
-  svm.model=svm(income~. ,data=train,kernel="linear",cost=cost, scale = T)
-  error.rate=1-accuracy(test$income,predict(svm.model,test[,-14]))$prop.correct
+  svm.model=svm(income~. ,data=train_full,kernel="linear",cost=cost, scale = T)
+  error.rate=1-accuracy(test_full$income,predict(svm.model,test_full))$prop.correct
   resultDF_linear=rbind(resultDF_linear, data.frame("cost"=cost, "error.rate"=error.rate))
 }
 resultDF_linear
@@ -177,8 +179,10 @@ resultDF_radial=data.frame()
 for(i in 1:5){
   set.seed(i)
   adult$randomNumber <- runif(nrow(adult))
-  train <- adult[randomNumber<0.8,][,randomNumber:=NULL]
-  test <- adult[randomNumber>=0.8,][,randomNumber:=NULL]
+  train <- adult[randomNumber<0.08,][,randomNumber:=NULL]
+  test <- adult[randomNumber>=0.08 & randomNumber<0.1,][,randomNumber:=NULL]
+  train_full <- adult[randomNumber<0.8,][,randomNumber:=NULL]
+  test_full <- adult[randomNumber>=0.8,][,randomNumber:=NULL]
   adult$randomNumber <- NULL
   
   tune.out=tune(svm,income~.,
@@ -188,21 +192,54 @@ for(i in 1:5){
   result.set=summary(tune.out)$performances
   cost=result.set[result.set$error==min(result.set$error),][1,]$cost
   gamma1=result.set[result.set$error==min(result.set$error),][1,]$gamma
-  svm.model=svm(income~., data=train,kernel="radial",cost=cost,gamma=gamma1, scale = T)
-  error.rate=1-accuracy(test$income,predict(svm.model,test[,-14]))$prop.correct
+  svm.model=svm(income~., data=train_full,kernel="radial",cost=cost,gamma=gamma1, scale = T)
+  error.rate=1-accuracy(test_full$income,predict(svm.model,test_full))$prop.correct
   resultDF_radial=rbind(resultDF_radial, data.frame("cost"=cost,"gamma"=gamma1, "error.rate"=error.rate))
 }
 resultDF_radial
 
 ```
 
+> Error rate is lower than other methods. 
+
 # Problem 5: compare logistic regression, random forest and SVM model performance (5 points)
 
 Compare performance of the models developed above (logistic regression, random forest, SVM) in terms of their accuracy, error and sensitivity/specificity.  Comment on differences and similarities between them.
 
+> SVM really takes a very long time to develop. Logistic regression doesn't perform very well. Random forest and SVM might be on par, but I don't really have a full read of SVM, it takes too much time and computing resource to develop. 
+
 # Extra 10 points: KNN model
 
 Develop KNN model for this data, evaluate its performance for different values of $k$ on different splits of the data into training and test and compare it to the performance of other methods reported in the dataset description.  Notice that this dataset includes many categorical variables as well as continuous attributes measured on different scales, so that the distance has to be defined to be meaningful (probably avoiding subtraction of the numerical values of multi-level factors directly or adding differences between untransformed age and capital gain/loss attributes).
+
+```{r extraKNN, echo=T}
+
+
+resultDF=data.frame()
+for(i in 1:5){
+  set.seed(i)
+  
+  n <- base::sample(c(FALSE,TRUE),nrow(adult_modelmatrix),replace=TRUE,prob=c(0.9,0.1))
+  m <- base::sample(c(FALSE,TRUE),nrow(adult_modelmatrix),replace=TRUE,prob=c(0.2,0.8))
+  
+  train <- adult_modelmatrix[n,]
+  train_full <- adult_modelmatrix[m, ]
+  test_full <- adult_modelmatrix[!m, ]
+
+  tune.out=tune.knn(train,adult[n,]$income,
+                k=c(1,5,10))
+  result.set=summary(tune.out)$performances
+  k=min(result.set[result.set$error==min(result.set$error),]$k)
+  knn.model=knn(train=train_full, 
+                test=test_full, 
+                cl=adult[m, ]$income, k=k)
+  error.rate=1-accuracy(adult[!m,]$income,knn.model)$prop.correct
+  resultDF=rbind(resultDF, data.frame("k"=k, "error.rate"=error.rate))
+}
+resultDF
+```
+
+> The error rate is lower than other methods
 
 # Extra 15 points: variable importance in SVM
 
